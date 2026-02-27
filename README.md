@@ -1,0 +1,2 @@
+# astrbot_plugin_goodmood
+有关astrbot的好感度。增加与群友的互动性
