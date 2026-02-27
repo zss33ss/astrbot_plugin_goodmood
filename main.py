@@ -1,17 +1,20 @@
 import asyncio
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict
 
-from astrbot.core import filter, on_command      # 假定 AstrBot 的插件接口
-from astrbot.model import AstrMessageEvent      # 假定消息事件类型
+from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.star import Star, register
 
 FAVORS_FILE = "lele_favor.json"
 FAVOR_LOCK = asyncio.Lock()
 FAVOR_CD = 60  # 单位：秒
 
 _favor_cache: Dict[str, dict] = {}
+
+# 依赖 aiofiles，如未自动导入请自行 pip install aiofiles
+import aiofiles
 
 async def _load_favor():
     global _favor_cache
@@ -53,25 +56,31 @@ async def add_favor(user_id: str, now_ts: float = None):
         return True
     return False
 
-@filter.on_event(AstrMessageEvent)
-async def favor_incrementer(event: AstrMessageEvent):
-    user_id = str(event.user_id)
-    await add_favor(user_id)
+class FavorStar(Star):
+    # 插件信息可根据你的需求补充
+    name = "favor_star"
+    description = "记录和查询用户好感度，1分钟CD，JSON持久化"
 
-@on_command("/我的好感", aliases=["/我的好感度"])
-async def favor_query(event: AstrMessageEvent):
-    user_id = str(event.user_id)
-    favor = await get_favor(user_id)
-    points = favor["points"]
-    yield event.plain_result(f"你的好感度积分为：{points}")
+    @filter.on_event(AstrMessageEvent)
+    async def on_any_msg(self, event: AstrMessageEvent):
+        user_id = str(event.user_id)
+        await add_favor(user_id)
 
-def get_user_favor_points(user_id: str) -> int:
-    """
-    用于外部：获取用户好感积分，方便后续个性化机器人回复
-    """
-    loop = asyncio.get_event_loop()
-    favor = loop.run_until_complete(get_favor(user_id))
-    return favor["points"]
+    @Star.on_command("/my mood")
+    async def my_mood(self, event: AstrMessageEvent):
+        user_id = str(event.user_id)
+        favor = await get_favor(user_id)
+        points = favor["points"]
+        yield event.plain_result(f"你的好感度积分为：{points}")
 
-# 依赖 aiofiles，如未自动导入请自行 pip install aiofiles
-import aiofiles
+    @staticmethod
+    def get_user_favor_points(user_id: str) -> int:
+        """
+        用于外部：获取用户好感积分，方便后续个性化机器人回复
+        """
+        loop = asyncio.get_event_loop()
+        favor = loop.run_until_complete(get_favor(user_id))
+        return favor["points"]
+
+# 注册Star插件
+register(FavorStar)
