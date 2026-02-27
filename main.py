@@ -9,10 +9,12 @@ from astrbot.api.star import Context, Star
 from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
-FAVORS_FILE = os.path.join("data", "lele_favor.json")
-FAVOR_CD = 0  # 单位：秒
+# 使用 AstrBot 官方数据路径（更安全，不会乱放文件）
+FAVORS_FILE = os.path.join(get_astrbot_data_path(), "lele_favor.json")
+FAVOR_CD = 60  # 单位：秒
 
 import aiofiles
+
 
 class FavorPlugin(Star):
     name = "favor_star"
@@ -65,15 +67,12 @@ class FavorPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_any_msg(self, event: AstrMessageEvent):
-        user_id = str(event.user_id)
+        user_id = str(event.get_sender_id())   # ← 这里改了！原来是 event.user_id
         await self.add_favor(user_id)
 
-    @filter.command("/我的好感")
+    @filter.command("我的好感")                # ← 这里也改了！去掉前面的 /
     async def my_favor(self, event: AstrMessageEvent):
-        user_id = str(event.user_id)
+        user_id = str(event.get_sender_id())   # ← 这里也改了！
         favor = await self.get_favor(user_id)
         points = favor["points"]
         yield event.plain_result(f"你的好感度积分为：{points}")
-
-
-
