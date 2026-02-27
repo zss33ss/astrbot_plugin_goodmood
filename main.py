@@ -10,7 +10,7 @@ from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 FAVORS_FILE = os.path.join("data", "lele_favor.json")
-FAVOR_CD = 60  # 单位：秒
+FAVOR_CD = 0  # 单位：秒
 
 import aiofiles
 
@@ -74,5 +74,6 @@ class FavorPlugin(Star):
         favor = await self.get_favor(user_id)
         points = favor["points"]
         yield event.plain_result(f"你的好感度积分为：{points}")
+
 
 
