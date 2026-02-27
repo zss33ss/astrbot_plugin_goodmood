@@ -1,0 +1,23 @@
+# 插件名称，建议使用英文小写和下划线
+name: favor_system
+
+# 插件的简短描述
+description: 一个通用的好感度系统插件。支持自动加分、冷却机制及好感度查询。
+
+# 插件版本
+version: v1.0.0
+
+# 作者名称
+author: zss33ss
+
+# 插件的主页或仓库地址
+repo: https://github.com/zss33ss/lele-astrbot
+
+# 插件分类 (可选，方便在市场中检索)
+category: 互动
+
+# 插件提供的具体技能描述，这会显示在 AstrBot 的 Skills 列表中
+skills:
+  - name: favor_query
+    description: 查询当前用户的好感度积分。
+    command: /我的好感
