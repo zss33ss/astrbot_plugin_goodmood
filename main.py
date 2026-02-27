@@ -4,7 +4,8 @@ import os
 from datetime import datetime
 from typing import Dict
 
-from astrbot.api.all import *
+from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.star import Context, Star, register
 
 FAVORS_FILE = os.path.join("data", "lele_favor.json")
 FAVOR_CD = 60  # 单位：秒
@@ -15,8 +16,8 @@ class FavorPlugin(Star):
     name = "favor_star"
     description = "记录和查询用户好感度，1分钟CD，JSON持久化"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, context: Context):
+        super().__init__(context)
         self._favor_cache: Dict[str, dict] = {}
         self._favor_lock = asyncio.Lock()
         self._init_task = asyncio.create_task(self._load_favor())
@@ -61,12 +62,12 @@ class FavorPlugin(Star):
         return False
 
     @filter.on_message()
-    async def on_any_msg(self, event: MessageEvent):
+    async def on_any_msg(self, event: AstrMessageEvent):
         user_id = str(event.user_id)
         await self.add_favor(user_id)
 
     @Star.on_command("/我的好感")
-    async def my_favor(self, event: MessageEvent):
+    async def my_favor(self, event: AstrMessageEvent):
         user_id = str(event.user_id)
         favor = await self.get_favor(user_id)
         points = favor["points"]
@@ -80,4 +81,6 @@ class FavorPlugin(Star):
         favor = loop.run_until_complete(self.get_favor(user_id))
         return favor["points"]
 
-register(FavorPlugin)
+@register("favor_system", "你的名字", "描述", "1.0.0")
+class FavorPlugin(Star):
+
