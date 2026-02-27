@@ -66,7 +66,7 @@ class FavorPlugin(Star):
         user_id = str(event.user_id)
         await self.add_favor(user_id)
 
-    @Star.on_command("/我的好感")
+    @filter.command("/我的好感")
     async def my_favor(self, event: AstrMessageEvent):
         user_id = str(event.user_id)
         favor = await self.get_favor(user_id)
@@ -83,4 +83,5 @@ class FavorPlugin(Star):
 
 @register("favor_system", "你的名字", "描述", "1.0.0")
 class FavorPlugin(Star):
+
 
