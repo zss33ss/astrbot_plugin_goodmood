@@ -73,12 +73,3 @@ class FavorPlugin(Star):
         points = favor["points"]
         yield event.plain_result(f"你的好感度积分为：{points}")
 
-    def get_user_favor_points(self, user_id: str) -> int:
-        """
-        用于外部：获取用户好感积分，方便后续个性化机器人回复
-        """
-        loop = asyncio.get_event_loop()
-        favor = loop.run_until_complete(self.get_favor(user_id))
-        return favor["points"]
-
-@register("favor_system", "你的名字", "描述", "1.0.0")
