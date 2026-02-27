@@ -5,7 +5,9 @@ from datetime import datetime
 from typing import Dict
 
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star
+from astrbot.api import logger
+from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 FAVORS_FILE = os.path.join("data", "lele_favor.json")
 FAVOR_CD = 60  # 单位：秒
@@ -61,7 +63,7 @@ class FavorPlugin(Star):
             return True
         return False
 
-    @filter.on_message()
+    @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_any_msg(self, event: AstrMessageEvent):
         user_id = str(event.user_id)
         await self.add_favor(user_id)
@@ -72,4 +74,5 @@ class FavorPlugin(Star):
         favor = await self.get_favor(user_id)
         points = favor["points"]
         yield event.plain_result(f"你的好感度积分为：{points}")
+
 
