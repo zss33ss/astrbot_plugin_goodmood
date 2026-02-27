@@ -82,5 +82,3 @@ class FavorPlugin(Star):
         return favor["points"]
 
 @register("favor_system", "你的名字", "描述", "1.0.0")
-class FavorPlugin(Star):
-    
