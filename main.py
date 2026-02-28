@@ -11,7 +11,7 @@ from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 # 使用 AstrBot 官方数据路径
 FAVORS_FILE = os.path.join(get_astrbot_data_path(), "lele_favor.json")
-FAVOR_CD = 60  # 单位：秒
+FAVOR_CD = 0  # 单位：秒
 
 # SnowNLP 情感阈值
 SENTIMENT_POSITIVE_THRESHOLD = 0.65  # 高于此值视为正面，+2分
@@ -137,13 +137,16 @@ class FavorPlugin(Star):
             return
 
         delta, sentiment_desc = analyze_sentiment(text)
+
+        # 【调试日志】查看情感判断结果，排查问题用，稳定后可改回 debug 级别
+        logger.info(f"[FavorPlugin] user={user_id} 文本='{text[:30]}' 情感={sentiment_desc} delta={delta:+d}")
+
         changed = await self.add_favor(user_id, delta)
 
-        if changed:
-            logger.debug(
-                f"[FavorPlugin] user={user_id} 情感={sentiment_desc} delta={delta:+d} "
-                f"points={self._favor_cache[user_id]['points']}"
-            )
+        logger.info(
+            f"[FavorPlugin] add_favor结果: changed={changed} "
+            f"当前积分={self._favor_cache.get(user_id, {}).get('points', '?')}"
+        )
 
     @filter.command("我的好感")
     async def my_favor(self, event: AstrMessageEvent):
