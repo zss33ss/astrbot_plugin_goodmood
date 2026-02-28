@@ -11,7 +11,7 @@ from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 FAVORS_FILE = os.path.join(get_astrbot_data_path(), "lele_favor.json")
-FAVOR_CD = 60
+FAVOR_CD = 0
 
 # ★ 在这里填入中三三的QQ号（字符串格式）
 SPECIAL_USER_ID = "3365047154"
