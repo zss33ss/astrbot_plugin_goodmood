@@ -6,25 +6,47 @@ from typing import Dict
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
+from astrbot.api.provider import ProviderRequest
 from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 # 使用 AstrBot 官方数据路径
 FAVORS_FILE = os.path.join(get_astrbot_data_path(), "lele_favor.json")
-FAVOR_CD = 0  # 单位：秒
+FAVOR_CD = 60  # 单位：秒
 
 # SnowNLP 情感阈值
 SENTIMENT_POSITIVE_THRESHOLD = 0.65  # 高于此值视为正面，+2分
 SENTIMENT_NEGATIVE_THRESHOLD = 0.35  # 低于此值视为负面，-1分
 # 中间区间 (0.35 ~ 0.65) 视为中性，+1分
 
-# 好感度称号（可自行扩展）
-FAVOR_TITLES = [
-    (0,   "陌生人"),
-    (10,  "普通朋友"),
-    (30,  "好朋友"),
-    (60,  "挚友"),
-    (100, "知己"),
+# 好感度称号 & 对应人设 prompt（可自行修改）
+# 格式：(最低分数, 称号, 人设描述)
+FAVOR_STAGES = [
+    (
+        0,
+        "陌生人",
+        "你刚认识这位用户，语气礼貌正式，保持适当距离，不会主动分享自己的想法，回答简洁。"
+    ),
+    (
+        10,
+        "普通朋友",
+        "你和这位用户已经认识一段时间了，语气平和友好，偶尔会加一点轻松的语气，但整体还是比较正经。"
+    ),
+    (
+        30,
+        "好朋友",
+        "你和这位用户是好朋友，说话轻松自然，可以用昵称称呼对方，偶尔开个无害的小玩笑，会主动关心对方状态。"
+    ),
+    (
+        60,
+        "挚友",
+        "你和这位用户是多年挚友，说话亲密随意，会撒娇、开玩笑，对对方的事情非常上心，说话带着明显的亲近感。"
+    ),
+    (
+        100,
+        "知己",
+        "你和这位用户是彼此最信任的知己，说话毫无保留，极其亲密，会主动分享心情，对对方的一切都感兴趣，语气温柔而真诚。"
+    ),
 ]
 
 import aiofiles
@@ -37,13 +59,13 @@ except ImportError:
     logger.warning("[FavorPlugin] snownlp 未安装，将退回为固定+1分模式。请执行: pip install snownlp")
 
 
-def get_favor_title(points: int) -> str:
-    """根据积分返回称号"""
-    title = FAVOR_TITLES[0][1]
-    for threshold, name in FAVOR_TITLES:
+def get_stage(points: int) -> tuple[str, str]:
+    """根据积分返回 (称号, 人设描述)"""
+    title, persona = FAVOR_STAGES[0][1], FAVOR_STAGES[0][2]
+    for threshold, t, p in FAVOR_STAGES:
         if points >= threshold:
-            title = name
-    return title
+            title, persona = t, p
+    return title, persona
 
 
 def analyze_sentiment(text: str) -> tuple[int, str]:
@@ -69,7 +91,7 @@ def analyze_sentiment(text: str) -> tuple[int, str]:
 
 class FavorPlugin(Star):
     name = "favor_star"
-    description = "记录和查询用户好感度，1分钟CD，SnowNLP情感分析，JSON持久化"
+    description = "记录和查询用户好感度，1分钟CD，SnowNLP情感分析，好感度影响说话风格，JSON持久化"
 
     def __init__(self, context: Context):
         super().__init__(context)
@@ -127,6 +149,21 @@ class FavorPlugin(Star):
         await self._save_favor()
         return True
 
+    @filter.on_llm_request()
+    async def inject_persona(self, event: AstrMessageEvent, req: ProviderRequest):
+        """在 LLM 请求前，根据发送者好感度动态注入人设 prompt"""
+        user_id = str(event.get_sender_id())
+        favor = await self.get_favor(user_id)
+        points = favor["points"]
+        title, persona = get_stage(points)
+
+        inject = (
+            f"\n\n【好感度系统】当前与用户（{user_id}）的关系阶段：{title}（{points}分）。"
+            f"请严格按照以下描述的风格与对方交流：{persona}"
+        )
+        req.system_prompt += inject
+        logger.debug(f"[FavorPlugin] 注入人设 user={user_id} 阶段={title} points={points}")
+
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_any_msg(self, event: AstrMessageEvent):
         user_id = str(event.get_sender_id())
@@ -137,23 +174,20 @@ class FavorPlugin(Star):
             return
 
         delta, sentiment_desc = analyze_sentiment(text)
-
-        # 【调试日志】查看情感判断结果，排查问题用，稳定后可改回 debug 级别
-        logger.info(f"[FavorPlugin] user={user_id} 文本='{text[:30]}' 情感={sentiment_desc} delta={delta:+d}")
-
         changed = await self.add_favor(user_id, delta)
 
-        logger.info(
-            f"[FavorPlugin] add_favor结果: changed={changed} "
-            f"当前积分={self._favor_cache.get(user_id, {}).get('points', '?')}"
-        )
+        if changed:
+            logger.debug(
+                f"[FavorPlugin] user={user_id} 情感={sentiment_desc} delta={delta:+d} "
+                f"points={self._favor_cache[user_id]['points']}"
+            )
 
     @filter.command("我的好感")
     async def my_favor(self, event: AstrMessageEvent):
         user_id = str(event.get_sender_id())
         favor = await self.get_favor(user_id)
         points = favor["points"]
-        title = get_favor_title(points)
+        title, _ = get_stage(points)
         yield event.plain_result(
             f"✨ 你的好感度：{points} 分\n"
             f"当前称号：【{title}】"
