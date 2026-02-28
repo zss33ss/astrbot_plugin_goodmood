@@ -192,3 +192,33 @@ class FavorPlugin(Star):
             f"✨ 你的好感度：{points} 分\n"
             f"当前称号：【{title}】"
         )
+
+    @filter.command("设置好感")
+    async def set_favor(self, event: AstrMessageEvent):
+        # 用法：设置好感 @某人 50
+        text = str(event.message_str).strip()
+        parts = text.split()
+        
+        # 解析参数，格式：设置好感 [user_id] [分数]
+        # 群里可以直接用QQ号，比如：设置好感 123456789 50
+        if len(parts) < 3:
+            yield event.plain_result("用法：设置好感 [用户ID] [分数]")
+            return
+        
+        target_id = parts[1]
+        try:
+            points = int(parts[2])
+        except ValueError:
+            yield event.plain_result("分数必须是整数")
+            return
+
+        if not self._favor_cache and not self._init_task.done():
+            await self._init_task
+
+        udata = self._favor_cache.get(target_id, {"points": 0, "last_time": 0})
+        udata["points"] = max(0, points)
+        self._favor_cache[target_id] = udata
+        await self._save_favor()
+
+        title, _ = get_stage(points)
+        yield event.plain_result(f"✅ 已将 {target_id} 的好感度设为 {points} 分【{title}】")
